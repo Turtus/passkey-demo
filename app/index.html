@@ -1,0 +1,117 @@
+<html>
+
+<head>
+  <title>WebAuthn test</title>
+</head>
+
+<body>
+  <button style="font-size: xx-large" onclick="register()">register</button>
+  <button style="font-size: xx-large" onclick="authenticate()">authenticate</button>
+</body>
+
+<script>
+  async function register() {
+    const userBody = JSON.stringify({
+      id: 1,
+      name: 'example'
+    });
+
+    const publicKey = await fetch('http://localhost:3000/webauthn/register/generate-options', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': userBody.length,
+      },
+      body: userBody,
+    }).then(res => res.json())
+      .catch(err => console.error(err));
+
+    publicKey.challenge = Uint8Array.from(atob(publicKey.challenge), c => c.charCodeAt(0));
+    publicKey.user.id   = Uint8Array.from(atob(publicKey.user.id),   c => c.charCodeAt(0));
+    console.log(publicKey);
+
+    const credentials = await navigator.credentials.create({ publicKey });
+    // console.log(credentials);
+    console.log({
+      authData: credentials.response.getAuthenticatorData(),
+      publicKey: credentials.response.getPublicKey(),
+      publicKeyAlg: credentials.response.getPublicKeyAlgorithm(),
+      transports: credentials.response.getTransports()
+    });
+    const credentialsJSON = JSON.stringify({
+      id: credentials.id,
+      rawId: btoa(String.fromCharCode(...new Uint8Array(credentials.rawId))),
+      response: {
+        clientDataJSON: JSON.parse(String.fromCharCode(...new Uint8Array(credentials.response.clientDataJSON))),
+        attestationObject: btoa(String.fromCharCode(...new Uint8Array(credentials.response.attestationObject))),
+      },
+      publicKey: btoa(String.fromCharCode(...new Uint8Array(credentials.response.getPublicKey()))),
+      publicKeyAlg: credentials.response.getPublicKeyAlgorithm(),
+      user: {
+        id: 1,
+        name: 'example',
+      },
+    });
+    // console.log(credentialsJSON);
+
+    await fetch('http://localhost:3000/webauthn/register/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': credentialsJSON.length,
+      },
+      body: credentialsJSON,
+    });
+  }
+
+  async function authenticate() {
+    const userBody = JSON.stringify({
+      id: 1,
+      name: 'example'
+    });
+
+    const publicKey = await fetch('http://localhost:3000/webauthn/authenticate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': userBody.length,
+      },
+      body: userBody,
+    }).then(res => res.json())
+      .catch(err => console.error(err));
+
+    publicKey.challenge = Uint8Array.from(atob(publicKey.challenge), c => c.charCodeAt(0));
+    console.log(publicKey);
+
+    const credentials = await navigator.credentials.get({ publicKey });
+    console.log(credentials);
+    console.log({
+      authData: credentials.response.getAuthenticatorData(),
+      signature: credentials.response.getSignature(),
+      userHandle: credentials.response.getUserHandle(),
+    });
+    const credentialsJSON = JSON.stringify({
+      id: credentials.id,
+      rawId: btoa(String.fromCharCode(...new Uint8Array(credentials.rawId))),
+      signature: btoa(String.fromCharCode(...new Uint8Array(credentials.response.signature))),
+      response: {
+        clientDataJSON: JSON.parse(String.fromCharCode(...new Uint8Array(credentials.response.clientDataJSON))),
+        authenticatorData: btoa(String.fromCharCode(...new Uint8Array(credentials.response.authenticatorData))),
+        userHandle: btoa(String.fromCharCode(...new Uint8Array(credentials.response.userHandle))),
+      },
+      type: credentials.type,
+    });
+    console.log(credentialsJSON);
+
+    await fetch('http://localhost:3000/webauthn/authenticate/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': credentialsJSON.length,
+      },
+      body: credentialsJSON,
+    });
+  }
+</script>
+
+</html>
