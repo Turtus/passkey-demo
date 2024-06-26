@@ -5,17 +5,54 @@
 </head>
 
 <body>
-  <button style="font-size: xx-large" onclick="register()">register</button>
-  <button style="font-size: xx-large" onclick="authenticate()">authenticate</button>
+  <table>
+    <tr><td>
+        <h2>create creds and save to the server</h2>
+    </td></tr><tr><td>
+        <button style="font-size: xx-large" onclick="register1()">register step1 get public key</button>
+        <div id="publicKey">here will be public key *request of</div>
+    </td></tr><tr><td>
+        <button style="font-size: xx-large" onclick="register2()">register step2 sign in local creds</button>
+        <div id="publicKeyCreds">here will be creds signed</div>
+    </td></tr><tr><td>
+        <button style="font-size: xx-large" onclick="register3()">register step3 json for the server</button>
+        <div id="publicKeyCredsJson">here will be server request prepared json</div>
+    </td></tr><tr><td>
+        <button style="font-size: xx-large" onclick="register4()">register step4 send to the server</button>
+        <div id="publicKeyCredsResp">here will be server response</div>
+    </td></tr><tr><td>
+        <button style="font-size: xx-large" onclick="register4_2()">register step4 send to the server as "hacker"</button>
+        <div id="publicKeyCredsRespHacker">here will be server response when "hacker"</div>
+    </td></tr><tr><td>
+        <Br/><br/><br/>
+        <h2>using created creds - auth to the server </h2>
+    </td></tr><tr><td>
+        <button style="font-size: xx-large" onclick="authenticate1()">authenticate step1</button>
+        <div id="authRequest">here will be auth *request of</div>
+    </td></tr><tr><td>
+      <button style="font-size: xx-large" onclick="authenticate2()">authenticate step2</button>
+      <div id="authRequestCreds">here will be creds signed</div>
+    </td></tr><tr><td>
+      <button style="font-size: xx-large" onclick="authenticate3()">authenticate step3</button>
+      <div id="authRequestCredsJson">here will be server request prepared json</div>
+    </td></tr><tr><td>
+      <button style="font-size: xx-large" onclick="authenticate4()">authenticate step4 send to the server</button>
+      <div id="authRequestCredsResp">here will be server response</div>
+  </td></tr>
+  </table>
+
+
 </body>
 
 <script>
-  async function register() {
+  async function register1() {
+    document.getElementById('publicKey').innerText = '...'
     const userBody = JSON.stringify({
       id: 1,
       name: 'example'
     });
 
+    // maybe rename as its actually not user pubkey - its pubkey request
     const publicKey = await fetch('http://localhost:3000/webauthn/register/generate-options', {
       method: 'POST',
       headers: {
@@ -24,93 +61,205 @@
       },
       body: userBody,
     }).then(res => res.json())
-      .catch(err => console.error(err));
+            .catch(err => console.error(err));
 
     publicKey.challenge = Uint8Array.from(atob(publicKey.challenge), c => c.charCodeAt(0));
-    publicKey.user.id   = Uint8Array.from(atob(publicKey.user.id),   c => c.charCodeAt(0));
-    console.log(publicKey);
-
-    const credentials = await navigator.credentials.create({ publicKey });
-    // console.log(credentials);
+    publicKey.user.id = Uint8Array.from(atob(publicKey.user.id), c => c.charCodeAt(0));
+    document.getElementById('publicKey').innerText =  new Date().toISOString() + ' ' + JSON.stringify(publicKey)
+    return publicKey
+  }
+  async function register2() {
+    const publicKey = await register1()
+    document.getElementById('publicKey').innerText = new Date().toISOString() + ' ' + JSON.stringify(publicKey)
+    document.getElementById('publicKeyCreds').innerText = '...'
+    let credentials = false
+    try {
+      credentials = await navigator.credentials.create({publicKey});
+      // https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredential
+      // https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredential/toJSON not working in http => https only
+      const tmp = {
+        authenticatorAttachment: credentials.authenticatorAttachment,
+        id: credentials.id,
+        rawId: btoa(String.fromCharCode(credentials.rawId)),
+        response: credentials.response,
+        type: credentials.type
+      }
+      document.getElementById('publicKeyCreds').innerText = new Date().toISOString() + ' ' + JSON.stringify(tmp); // should be if possible credentials.toJSON();
+    } catch (e) {
+      document.getElementById('publicKeyCreds').innerText = new Date().toISOString() + ' error ' + e.message;
+    }
+    return credentials
+  }
+  async function register3() {
+    const credentials = await register2()
+    /*
     console.log({
       authData: credentials.response.getAuthenticatorData(),
       publicKey: credentials.response.getPublicKey(),
       publicKeyAlg: credentials.response.getPublicKeyAlgorithm(),
       transports: credentials.response.getTransports()
     });
-    const credentialsJSON = JSON.stringify({
-      id: credentials.id,
-      rawId: btoa(String.fromCharCode(...new Uint8Array(credentials.rawId))),
-      response: {
-        clientDataJSON: JSON.parse(String.fromCharCode(...new Uint8Array(credentials.response.clientDataJSON))),
-        attestationObject: btoa(String.fromCharCode(...new Uint8Array(credentials.response.attestationObject))),
-      },
-      publicKey: btoa(String.fromCharCode(...new Uint8Array(credentials.response.getPublicKey()))),
-      publicKeyAlg: credentials.response.getPublicKeyAlgorithm(),
-      user: {
-        id: 1,
-        name: 'example',
-      },
-    });
-    // console.log(credentialsJSON);
-
-    await fetch('http://localhost:3000/webauthn/register/verify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': credentialsJSON.length,
-      },
-      body: credentialsJSON,
-    });
+    */
+    document.getElementById('publicKeyCredsJson').innerText = '...'
+    let credentialsJSON = false
+    try {
+      // should be if possible credentials.toJSON();
+      credentialsJSON = JSON.stringify({
+        id: credentials.id,
+        rawId: btoa(String.fromCharCode(...new Uint8Array(credentials.rawId))),
+        response: {
+          clientDataJSON: JSON.parse(String.fromCharCode(...new Uint8Array(credentials.response.clientDataJSON))),
+          attestationObject: btoa(String.fromCharCode(...new Uint8Array(credentials.response.attestationObject))),
+        },
+        publicKey: btoa(String.fromCharCode(...new Uint8Array(credentials.response.getPublicKey()))),
+        publicKeyAlg: credentials.response.getPublicKeyAlgorithm(),
+        user: {
+          id: 1,
+          name: 'example',
+        },
+      });
+      // console.log(credentialsJSON);
+      document.getElementById('publicKeyCredsJson').innerText = new Date().toISOString() + ' ' + JSON.stringify(credentialsJSON);
+    } catch (e) {
+      document.getElementById('publicKeyCredsJson').innerText = new Date().toISOString() + ' error ' + e.message;
+    }
+    return credentialsJSON
   }
+  async function register4() {
+    const credentialsJSON = await register3()
+    document.getElementById('publicKeyCredsResp').innerText = '...'
+    try {
+      const resp = await fetch('http://localhost:3000/webauthn/register/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': credentialsJSON.length,
+        },
+        body: credentialsJSON,
+      }).then(res => res.json())
+              .catch(err => console.error(err));
 
-  async function authenticate() {
+      document.getElementById('publicKeyCredsResp').innerText = new Date().toISOString() + ' ' + JSON.stringify(resp);
+    } catch (e) {
+      document.getElementById('publicKeyCredsResp').innerText = new Date().toISOString() + ' error ' + e.message;
+    }
+  }
+  async function register4_2() {
+    const credentialsJSON = await register3()
+    document.getElementById('publicKeyCredsRespHacker').innerText = '...'
+    const hacker = JSON.parse(credentialsJSON)
+    hacker.user.id = 11 // hehehehe
+    hacker.publicKey = 'safadgdg' // hehehehe 2
+    try {
+      const resp = await fetch('http://localhost:3000/webauthn/register/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': JSON.stringify(hacker).length,
+        },
+        body: JSON.stringify(hacker),
+      }).then(res => res.json())
+              .catch(err => console.error(err));
+
+      document.getElementById('publicKeyCredsRespHacker').innerText = new Date().toISOString() + ' ' + JSON.stringify(resp);
+    } catch (e) {
+      document.getElementById('publicKeyCredsRespHacker').innerText = new Date().toISOString() + ' error ' + e.message;
+    }
+  }
+  async function authenticate1() {
+    document.getElementById('authRequest').innerText = '...'
     const userBody = JSON.stringify({
       id: 1,
       name: 'example'
     });
 
-    const publicKey = await fetch('http://localhost:3000/webauthn/authenticate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': userBody.length,
-      },
-      body: userBody,
-    }).then(res => res.json())
-      .catch(err => console.error(err));
+    let publicKey = false
+    try {
+       publicKey = await fetch('http://localhost:3000/webauthn/authenticate', { // totally not public key - its request
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': userBody.length,
+        },
+        body: userBody,
+      }).then(res => res.json())
+              .catch(err => console.error(err));
+      if (typeof publicKey.challenge !== 'undefined') {
+        publicKey.challenge = Uint8Array.from(atob(publicKey.challenge), c => c.charCodeAt(0));
+      }
+      if (typeof publicKey.user !== 'undefined') {
+        publicKey.user.id = Uint8Array.from(atob(publicKey.user.id), c => c.charCodeAt(0));
+       }
+      // console.log(publicKey);
+      document.getElementById('authRequest').innerText =  new Date().toISOString() + ' ' + JSON.stringify(publicKey)
+    } catch (e) {
+      document.getElementById('authRequest').innerText =  new Date().toISOString() + ' error ' + e.message
+    }
+    return publicKey
+  }
+  async function authenticate2() {
+     const publicKey = await authenticate1()
+     document.getElementById('authRequestCreds').innerText = '...'
+     let credentials = false
+     try {
+         credentials = await navigator.credentials.get({publicKey});
+         const tmp = {
+             authenticatorAttachment: credentials.authenticatorAttachment,
+             id: credentials.id,
+             rawId: btoa(String.fromCharCode(credentials.rawId)),
+             response: credentials.response,
+             type: credentials.type
+         }
+         document.getElementById('authRequestCreds').innerText = new Date().toISOString() + ' ' + JSON.stringify(tmp); // should be if possible credentials.toJSON();
+     } catch (e) {
+         document.getElementById('authRequestCreds').innerText = new Date().toISOString() + ' error ' + e.message;
+     }
+     return credentials
+  }
+  async function authenticate3() {
+      const credentials = await authenticate2()
+      console.log(credentials)
+      document.getElementById('authRequestCredsJson').innerText = '...'
+      let credentialsJSON = false
+      try {
+          // here should be some signed data (to check if its actually the user from created ones
+          credentialsJSON = JSON.stringify({
+              id: credentials.id,
+              rawId: btoa(String.fromCharCode(...new Uint8Array(credentials.rawId))),
+              response: {
+                  clientDataJSON: JSON.parse(String.fromCharCode(...new Uint8Array(credentials.response.clientDataJSON))),
+                  attestationObject: btoa(String.fromCharCode(...new Uint8Array(credentials.response.attestationObject))),
+              },
+              user: {
+                  id: 1,
+                  name: 'example',
+              },
+          });
+          // console.log(credentialsJSON);
+          document.getElementById('authRequestCredsJson').innerText = new Date().toISOString() + ' ' + JSON.stringify(credentialsJSON);
+      } catch (e) {
+          document.getElementById('authRequestCredsJson').innerText = new Date().toISOString() + ' error ' + e.message;
+      }
+      return credentialsJSON
+  }
+  async function authenticate4() {
+      const credentialsJSON = await authenticate3()
+      document.getElementById('authRequestCredsResp').innerText = '...'
+      try {
+          const resp = await fetch('http://localhost:3000/webauthn/authenticate/verify', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Content-Length': credentialsJSON.length,
+              },
+              body: credentialsJSON,
+          }).then(res => res.json())
+              .catch(err => console.error(err));
 
-    publicKey.challenge = Uint8Array.from(atob(publicKey.challenge), c => c.charCodeAt(0));
-    console.log(publicKey);
-
-    const credentials = await navigator.credentials.get({ publicKey });
-    console.log(credentials);
-    console.log({
-      authData: credentials.response.getAuthenticatorData(),
-      signature: credentials.response.getSignature(),
-      userHandle: credentials.response.getUserHandle(),
-    });
-    const credentialsJSON = JSON.stringify({
-      id: credentials.id,
-      rawId: btoa(String.fromCharCode(...new Uint8Array(credentials.rawId))),
-      signature: btoa(String.fromCharCode(...new Uint8Array(credentials.response.signature))),
-      response: {
-        clientDataJSON: JSON.parse(String.fromCharCode(...new Uint8Array(credentials.response.clientDataJSON))),
-        authenticatorData: btoa(String.fromCharCode(...new Uint8Array(credentials.response.authenticatorData))),
-        userHandle: btoa(String.fromCharCode(...new Uint8Array(credentials.response.userHandle))),
-      },
-      type: credentials.type,
-    });
-    console.log(credentialsJSON);
-
-    await fetch('http://localhost:3000/webauthn/authenticate/verify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': credentialsJSON.length,
-      },
-      body: credentialsJSON,
-    });
+          document.getElementById('authRequestCredsResp').innerText = new Date().toISOString() + ' ' + JSON.stringify(resp);
+      } catch (e) {
+          document.getElementById('authRequestCredsResp').innerText = new Date().toISOString() + ' error ' + e.message;
+      }
   }
 </script>
 
